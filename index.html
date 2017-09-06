@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang='en'>
+    <head>
+    <meta charset='UTF-8' />
+    <meta name="HandheldFriendly" content="true" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Phaser App">
+    <meta name="viewport" content="initial-scale=1 maximum-scale=1 user-scalable=0 minimal-ui" />
+    <title>Cube Experiment</title>
+    <!-- Latest compiled and minified CSS -->
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="js/tween.min.js"></script>
+    <script src="js/three.min.js"></script>
+    <style>
+    @import url(http://fonts.googleapis.com/css?family=Open+Sans:800);
+    #world {
+      background: #59ABCC;
+      position:absolute;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      z-index: 1;
+    }
+    #title {
+      position:absolute;
+      width:100%;
+      top:7%;
+      margin: auto;
+      margin-top:20px;
+      font-family: 'Open Sans', sans-serif;
+      color:#1F7699;
+      font-size: 4em;
+      text-transform: uppercase;
+      text-align : center;
+      line-height : 1.5;
+      user-select: none;
+      font-weight: bold;
+      z-index: 100;
+    }
+    #instructions{
+      font-family: 'Open Sans', sans-serif;
+      color:#1F7699;
+      position:absolute;
+      font-size:18px;
+      z-index: 100;
+      text-align : center;
+      width:100%;
+      top:90%;
+      line-height:1.2;
+      font-weight:bold;
+    }
+    .credit{
+      color:#CC596E;
+      font-size:12px;
+      font-weight:bold;
+    }
+    @media (max-width: 480px) {
+      #title {
+        position:absolute;
+        width:100%;
+        top:4%;
+        margin: auto;
+        margin-top:20px;
+        font-family: 'Open Sans', sans-serif;
+        color:rgba(0,0,0,.5);
+        font-size: 1em;
+        text-transform: uppercase;
+        text-align : center;
+        line-height : 1.5;
+        user-select: none;
+        font-weight: bold;
+        z-index: 100;
+      }
+    }
+
+    #setGeneratedOne{
+      z-index: 10000;
+      position: absolute;
+      top: 20px;
+      left: -200px;
+    }
+
+    #toolContainer{
+      z-index: 10000;
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
+    .toolsTitle{
+      font-family: 'Open Sans', sans-serif;
+      color:#1F7699;
+      font-size:18px;
+      line-height:1.2;
+      font-weight:bold;
+    }
+
+    label > input{ /* HIDE RADIO */
+      visibility: hidden; /* Makes input not-clickable */
+      position: absolute; /* Remove input from document flow */
+    }
+    label > input + img{ /* IMAGE STYLES */
+      cursor:pointer;
+      border:2px solid transparent;
+    }
+    label > input:checked + img{ /* (RADIO CHECKED) IMAGE STYLES */
+      border:2px solid #59ABCC;
+      outline: 2px solid #1F7699;
+    }
+
+    </style>
+    </head>
+    <body>
+    <div id="title">Cube Experiment</div>
+    <canvas id="setGeneratedOne"></canvas>
+    <div id="world"></div>
+    <div id="toolContainer">
+      <div class="toolsTitle">Tools<br><br></div>
+      <label>
+        <input id="dirt" type="radio" name="selectedTexture" value="dirt" checked="checked" onclick="updateSelectedTexture(this.value)"/>
+        <img src="assets/dirt.jpg" width="32" height="32">
+      </label>
+      <br>
+      <label>
+        <input id="rock" type="radio" name="selectedTexture" value="rock" onclick="updateSelectedTexture(this.value)"/>
+        <img src="assets/rock.jpg" width="32" height="32">
+      </label>
+      <br>
+      <a id="screencap" type="button" class="btn btn-primary" href="#"><i class="glyphicon glyphicon-download-alt"></i></a>
+    </div>
+    <div id="instructions">Instructions<br>
+      <span class="credit">Click and Hold/Move Mouse to Orbit. <br> Hold Alt + Click to Add New Blocks or Hold Shift + Click to Remove Blocks</span> 
+    </div>
+    
+
+
+
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="js/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <!-- <script src="http://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script> -->    
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/gsap/1.16.1/TweenMax.min.js"></script>
+    <script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/264161/OrbitControls.js"></script>
+    <script src="js/perlin.js"></script>
+
+    <script>
+
+
+    //CANVAS NOISE IMAGE FOR PROCEDURAL GENERATION
+
+    var canvas = document.getElementById('setGeneratedOne');
+    canvas.width = 200;
+    canvas.height = 200;
+
+    var ctx = canvas.getContext('2d');
+
+    var image = ctx.createImageData(canvas.width, canvas.height);
+    var data = image.data;
+
+    for (var x = 0; x < canvas.width; x++) {
+      if (x % 200 == 0) {
+      noise.seed(Math.random());
+      }
+      for (var y = 0; y < canvas.height; y++) {
+        var value = Math.abs(noise.perlin2(x / 100, y / 100));
+        value *= 256;
+
+        var cell = (x + y * canvas.width) * 4;
+        data[cell] = data[cell + 1] = data[cell + 2] = value;
+        data[cell + 3] = 255; // alpha.
+      }
+    }
+
+    ctx.fillColor = 'black';
+    ctx.fillRect(0, 0, 100, 100);
+    ctx.putImageData(image, 0, 0);
+
+
+    //THREEJS RELATED VARIABLES 
+
+    var scene, 
+        camera,
+        controls,
+        fieldOfView,
+        aspectRatio,
+        nearPlane,
+        farPlane,
+        shadowLight, 
+        backLight,
+        light, 
+        renderer,
+        container,
+        raycaster,
+        intersected_cube,
+        blockColor,
+        texture,
+        dirt,
+        rock,
+        grass,
+        water,
+        selectedTexture;
+
+    //SCENE
+    var floor;
+    // globalSpeedRate = 1;
+    const CUBE_WIDTH = 10;
+    const CUBE_HEIGHT = 10;
+    const CUBE_DEPTH = 10;
+    const TOTAL_X_CUBES = 20;
+    const TOTAL_Y_CUBES = 20;
+    const TOTAL_Z_CUBES = 20;
+    const FACE_POSITIVE_X = 0;
+    const FACE_NEGATIVE_X = 1;
+    const FACE_POSITIVE_Y = 2;
+    const FACE_NEGATIVE_Y = 3;
+    const FACE_POSITIVE_Z = 4;
+    const FACE_NEGATIVE_Z = 5;
+    const CHANCE_OF_WATER = 5; //IN PERCENTAGE
+    var cubes = [];
+    var waterCubes = [];
+    var strDownloadMime = "image/octet-stream";
+    
+
+    //INPUT VARIABLES
+    const SHIFT_KEY_CODE = 16;
+    const CONTROL_KEY_CODE = 17;
+    const ALT_KEY_CODE = 18;
+    var SHIFT_KEY_PRESSED = false;
+    var CONTROL_KEY_PRESSED = false;
+    var ALT_KEY_PRESSED = false;
+
+    //SCREEN VARIABLES
+
+    var HEIGHT,
+        WIDTH,
+        windowHalfX,
+        windowHalfY;
+        // mousePos = {x:0,y:0};
+
+    var raycaster = new THREE.Raycaster();
+    var mouse = new THREE.Vector2();
+    
+
+
+    //INIT THREE JS, SCREEN AND MOUSE EVENTS
+
+    function init(){
+        scene = new THREE.Scene();
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+        fieldOfView = 60;
+        nearPlane = 1;
+        farPlane = 2000; 
+        camera = new THREE.PerspectiveCamera(
+            fieldOfView,
+            aspectRatio,
+            nearPlane,
+            farPlane);
+        camera.position.z = 1000;  
+        camera.position.y = 300;
+        camera.lookAt(new THREE.Vector3(0,0,0));    
+        renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(WIDTH, HEIGHT);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.sortObjects = false;
+
+        selectedTexture = 'dirt';
+        dirt = new THREE.TextureLoader().load( 'assets/dirt.jpg' );
+        rock = new THREE.TextureLoader().load( 'assets/rock.jpg' );
+        water = new THREE.TextureLoader().load( 'assets/water.jpg' );
+        var grass1 = new THREE.TextureLoader().load( 'assets/texture1.jpg' );
+        var grass2 = new THREE.TextureLoader().load( 'assets/texture2.jpg' );
+        var grass3 = new THREE.TextureLoader().load( 'assets/texture3.jpg' );
+        var grass4 = new THREE.TextureLoader().load( 'assets/texture4.jpg' );
+        var grass5 = new THREE.TextureLoader().load( 'assets/texture5.jpg' );
+        var grass6 = new THREE.TextureLoader().load( 'assets/texture6.jpg' );
+        grassPositiveZ = [
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+        ];
+        grassNegativeZ = [
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+        ];
+        grassPositiveX = [
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+        ];
+        grassNegativeX = [
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+        ];
+        grassPositiveY = [
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+        ];
+        grassNegativeY = [
+           new THREE.MeshLambertMaterial({ map: grass4 }),
+           new THREE.MeshLambertMaterial({ map: grass5 }),
+           new THREE.MeshLambertMaterial({ map: grass6 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass2 }),
+           new THREE.MeshLambertMaterial({ map: grass3 }),
+        ];
+        grassCorner = [
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+           new THREE.MeshLambertMaterial({ map: grass1 }),
+        ];
+
+      
+        container = document.getElementById('world');
+        container.appendChild(renderer.domElement);
+
+        windowHalfX = WIDTH / 2;
+        windowHalfY = HEIGHT / 2;
+        
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('mousemove', handleMouseMove, false);      
+        document.addEventListener('mousedown', handleMouseDown, false);
+        document.addEventListener('keydown', handleKeyDown, false);
+        document.addEventListener('keyup', handleKeyUp, false);
+        document.getElementById("screencap").addEventListener('click', saveAsImage);
+        // document.addEventListener('mouseup', handleMouseUp, false);
+        // document.addEventListener('touchstart', handleTouchStart, false);
+        // document.addEventListener('touchend', handleTouchEnd, false);
+        // document.addEventListener('touchmove',handleTouchMove, false);
+
+        // Add the orbit controls
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target = new THREE.Vector3(0, 0, 0);     
+    }
+
+    function onWindowResize() {
+      HEIGHT = window.innerHeight;
+      WIDTH = window.innerWidth;
+      windowHalfX = WIDTH / 2;
+      windowHalfY = HEIGHT / 2;
+      renderer.setSize(WIDTH, HEIGHT);
+      camera.aspect = WIDTH / HEIGHT;
+      camera.updateProjectionMatrix();
+    }
+
+    function handleMouseMove(event) {
+      mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+			mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
+    }
+
+    function handleKeyDown(event) {
+      if(event.keyCode == SHIFT_KEY_CODE){
+        SHIFT_KEY_PRESSED = true;
+      }
+      if(event.keyCode == ALT_KEY_CODE){
+        ALT_KEY_PRESSED = true;
+      }
+      if(event.keyCode == CONTROL_KEY_CODE){
+        CONTROL_KEY_PRESSED = true;
+      }
+    }
+
+    function handleKeyUp(event) {
+      if(SHIFT_KEY_PRESSED){
+        SHIFT_KEY_PRESSED = false;
+      }
+      if(ALT_KEY_PRESSED){
+        ALT_KEY_PRESSED = false;
+      }
+      if(CONTROL_KEY_PRESSED){
+        CONTROL_KEY_PRESSED = false;
+      }
+    }
+
+    // function handleTouchStart(event) {
+    //   if (event.touches.length > 1) {
+    //     event.preventDefault();
+    //         mousePos = {x:event.touches[0].pageX, y:event.touches[0].pageY};
+    //   }
+    // }
+
+    // function handleTouchEnd(event) {
+    //     mousePos = {x:windowHalfX, y:windowHalfY};
+    // }
+
+    // function handleTouchMove(event) {
+    //   if (event.touches.length == 1) {
+    //     event.preventDefault();
+    //         mousePos = {x:event.touches[0].pageX, y:event.touches[0].pageY};
+    //   }
+    // }
+
+    function handleMouseDown(event) {
+			var intersects = raycaster.intersectObjects(cubes, true);
+
+      if(intersects.length > 0) {
+          if(CONTROL_KEY_PRESSED){
+            //SUBTRACTING
+            var index = (intersects[0].object.position.x/CUBE_WIDTH)*(intersects[0].object.position.z/CUBE_DEPTH)*(intersects[0].object.position.y/CUBE_HEIGHT);
+            intersects[0].object.visible = false;
+            cubes.splice(index, 1);
+          }else if(ALT_KEY_PRESSED){
+            //ADDING
+            var clickedFace = intersects[0].face.materialIndex;
+            var posX = intersects[0].object.position.x;
+            var posY = intersects[0].object.position.y;
+            var posZ = intersects[0].object.position.z;
+            
+            if(clickedFace == FACE_POSITIVE_X){
+              handleBlocks(posX+CUBE_WIDTH,posY,posZ,true);
+            }else if(clickedFace == FACE_POSITIVE_Y){
+              handleBlocks(posX,posY+CUBE_HEIGHT,posZ,true);
+            }else if(clickedFace == FACE_POSITIVE_Z){
+              handleBlocks(posX,posY,posZ+CUBE_DEPTH,true);
+            }else if(clickedFace == FACE_NEGATIVE_X){
+              handleBlocks(posX-CUBE_WIDTH,posY,posZ,true);
+            }else if(clickedFace == FACE_NEGATIVE_Y){
+              handleBlocks(posX,posY-CUBE_HEIGHT,posZ,true);
+            }else if(clickedFace == FACE_NEGATIVE_Z){
+              handleBlocks(posX,posY,posZ-CUBE_DEPTH,true);
+            }
+          }
+			}
+			
+    }
+
+    function handleMouseUp(event) {
+      
+    }
+
+    function createLights() {
+      light = new THREE.HemisphereLight(0xffffff, 0xffffff, .2)
+      
+      shadowLight = new THREE.DirectionalLight(0xffffff, .8);
+      shadowLight.position.set(200, 200, 200);
+      shadowLight.castShadow = true;
+        
+      backLight = new THREE.DirectionalLight(0xffffff, .5);
+      backLight.position.set(-100, 400, 100);
+      backLight.castShadow = true;
+        
+      scene.add(backLight);
+      scene.add(light);
+      scene.add(shadowLight);
+    }
+
+    Cube = function(posX,posY,posZ,selected){
+      var cubeName = '';
+      if(selected){
+        if(selectedTexture == 'dirt'){
+          cubeName = 'dirt';
+          this.material = new THREE.MeshLambertMaterial( { map: dirt } );
+        }else if(selectedTexture == 'rock'){
+          cubeName = 'rock';
+          this.material = new THREE.MeshLambertMaterial( { map: rock } );
+        }else if(selectedTexture == 'water'){
+          cubeName = 'water';
+          this.material = new THREE.MeshLambertMaterial( { map: water } );
+        }
+      }else{
+        if(posX == 0 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH || posY == 0 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT || posZ == 0 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH){
+          //blockColor = 0x89FFE1;
+          if(posX == 0){
+            this.material = grassNegativeX;
+          }else if(posX == 190){
+            this.material = grassPositiveX;
+          }else if(posY == 0){
+            this.material = grassNegativeY;
+          }else if(posY == 190){
+            this.material = grassPositiveY;
+          }else if(posZ == 0){
+            this.material = grassNegativeZ;
+          }else if(posZ == 190){
+            this.material = grassPositiveZ;
+          }
+          if((posX == 0 && posY == 0)|| (posX == 0 && posZ == 0) || (posY == 0 && posZ == 0) || (posX == 190 && posY == 190)|| (posX == 190 && posZ == 190) || (posY == 190 && posZ == 190) || (posX == 0 && posY == 190)|| (posX == 0 && posZ == 190) || (posY == 0 && posZ == 190) || (posX == 190 && posY == 0)|| (posX == 190 && posZ == 0) || (posY == 190 && posZ == 0)){
+            cubeName = 'grass';
+            this.material = grassCorner;
+          }
+        }else if(posX == CUBE_WIDTH*2 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH*2 || posY == CUBE_HEIGHT*2 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT*2 || posZ == CUBE_DEPTH*2 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH*2){
+          //blockColor = 0x7D5134;     
+          cubeName = 'dirt';
+          this.material = new THREE.MeshLambertMaterial( { map: dirt } );
+        }else if(posX == CUBE_WIDTH*3 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH*3 || posY == CUBE_HEIGHT*3 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT*3 || posZ == CUBE_DEPTH*3 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH*3){
+          //blockColor = 0x7D5134;     
+          var n = Math.random() * 100;
+          if(n < CHANCE_OF_WATER){
+            cubeName = 'water';
+            this.material = new THREE.MeshLambertMaterial( { map: water } );
+          }else{
+            cubeName = 'dirt';
+            this.material = new THREE.MeshLambertMaterial( { map: dirt } );
+          }
+        }else{
+          //blockColor = 0x7D5134;
+          // var n = Math.random() * 100;
+          // if(n < CHANCE_OF_WATER){
+          //   cubeName = 'water';
+          //   this.material = new THREE.MeshLambertMaterial( { map: water } );
+          // }else{
+            cubeName = 'rock';
+            this.material = new THREE.MeshLambertMaterial( { map: rock } );
+          // }
+        }
+      }
+
+      // this.material = new THREE.MeshLambertMaterial( { color: blockColor } );
+      this.material.side = THREE.DoubleSide;
+      this.geometry = new THREE.BoxGeometry(CUBE_WIDTH, CUBE_HEIGHT, CUBE_DEPTH);
+      this.cube = new THREE.Mesh(this.geometry, this.material);
+      this.cube.name = cubeName;
+      this.cube.castShadow = true;
+      this.cube.receiveShadow = true;
+      // this.cube.position.x = posX+(posX/10);
+      // this.cube.position.y = posY+(posY/10);
+      // this.cube.position.z = posZ+(posZ/10);
+      this.cube.position.x = posX;
+      this.cube.position.y = posY;
+      this.cube.position.z = posZ;
+    }
+
+
+    function createCubes(){
+      for(var y=0;y<TOTAL_Y_CUBES;y++){
+        for(var z=0;z<TOTAL_Z_CUBES;z++){
+          for(var x=0;x<TOTAL_X_CUBES;x++){
+            handleBlocks(x*CUBE_WIDTH,y*CUBE_HEIGHT,z*CUBE_DEPTH,false);
+          }
+        }
+      }
+      setInterval(fillWater,3000);
+    }
+
+
+    function handleBlocks(posX,posY,posZ,newCube){
+      var renderBlock = true;
+      if(!newCube){
+        var colorDataZ = ctx.getImageData(posX, posY, 1, 1).data;
+        var colorDataX = ctx.getImageData(posY, posZ, 1, 1).data;
+        var colorDataY = ctx.getImageData(posZ, posX, 1, 1).data;
+        // X BLOCK CONTROL // 
+        if(posX == 0 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH){
+          if(colorDataX[0] > 30 && colorDataX[1] > 30 && colorDataX[2] > 30){
+            renderBlock = false;
+          }
+        }else if(posX == CUBE_WIDTH*2 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH*2){
+          if(colorDataX[0] > 90 && colorDataX[1] > 90 && colorDataX[2] > 90){
+            renderBlock = false;
+          }
+        }else if(posX == CUBE_WIDTH*3 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH*3){
+          if(colorDataX[0] > 140 && colorDataX[1] > 140 && colorDataX[2] > 140){
+            renderBlock = false;
+          }
+        }else if(posX == CUBE_WIDTH*4 || posX == (CUBE_WIDTH*TOTAL_X_CUBES)-CUBE_WIDTH*4){
+          if(colorDataX[0] > 180 && colorDataX[1] > 180 && colorDataX[2] > 180){
+            renderBlock = false;
+          }
+        }
+
+
+        // Y BLOCK CONTROL // 
+        if(posY == 0 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT){
+          if(colorDataY[0] > 40 && colorDataY[1] > 40 && colorDataY[2] > 40){
+            renderBlock = false;
+          }
+        }else if(posY == CUBE_HEIGHT*2 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT*2){
+          if(colorDataY[0] > 100 && colorDataY[1] > 100 && colorDataY[2] > 100){
+            renderBlock = false;
+          }
+        }else if(posY == CUBE_HEIGHT*3 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT*3){
+          if(colorDataY[0] > 120 && colorDataY[1] > 120 && colorDataY[2] > 120){
+            renderBlock = false;
+          }
+        }else if(posY == CUBE_HEIGHT*4 || posY == (CUBE_HEIGHT*TOTAL_Y_CUBES)-CUBE_HEIGHT*4){
+          if(colorDataY[0] > 190 && colorDataY[1] > 190 && colorDataY[2] > 190){
+            renderBlock = false;
+          }
+        }
+
+
+        // // Z BLOCK CONTROL // 
+        if(posZ == 0 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH){
+          if(colorDataZ[0] > 50 && colorDataZ[1] > 50 && colorDataZ[2] > 50){
+            renderBlock = false;
+          }
+        }else if(posZ == CUBE_DEPTH*2 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH*2){
+          if(colorDataZ[0] > 110 && colorDataZ[1] > 110 && colorDataZ[2] > 110){
+            renderBlock = false;
+          }
+        }else if(posZ == CUBE_DEPTH*3 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH*3){
+          if(colorDataZ[0] > 160 && colorDataZ[1] > 160 && colorDataZ[2] > 160){
+            renderBlock = false;
+          }
+        }else if(posZ == CUBE_DEPTH*4 || posZ == (CUBE_DEPTH*TOTAL_Z_CUBES)-CUBE_DEPTH*4){
+          if(colorDataZ[0] > 200 && colorDataZ[1] > 200 && colorDataZ[2] > 200){
+            renderBlock = false;
+          }
+        }
+      }
+
+      //RENDER BLOCK IF TRUE
+      if(renderBlock){
+        if(newCube){
+          var cube = new Cube(posX,posY,posZ,true);
+          var index = (posX/CUBE_WIDTH)*(posZ/CUBE_DEPTH)*(posY/CUBE_HEIGHT);
+          cubes.splice(index, 0, cube.cube);
+        }else{
+          var cube = new Cube(posX,posY,posZ,false);
+          cubes.push(cube.cube);
+        }
+        scene.add(cube.cube);
+      }
+    }
+
+
+    function fillWater(){
+      var index = 0;
+      var pass = false;
+      var oldSelectedTexture = selectedTexture;
+      cubes.forEach(function(i) {
+        //X COORDINATES
+        var lastXIndex = parseInt(index)-1; 
+        var nextXIndex = parseInt(index)+1; 
+        //Z COORDINATES
+        var totalSinceLastZ = cubesSinceLastZ(cubes[index].position.x,cubes[index].position.y,index); 
+        var lastZIndex = parseInt(index)-totalSinceLastZ; 
+        var totalUntilNextZ = cubesUntilNextZ(cubes[index].position.x,cubes[index].position.y,index); 
+        var nextZIndex = parseInt(index)+totalUntilNextZ; 
+        //Y COORDINATES
+        var totalSinceLastY = cubesSinceLastY(cubes[index].position.x,cubes[index].position.z,index); 
+        var lastYIndex = parseInt(index)-totalSinceLastY; 
+        var totalUntilNextY = cubesUntilNextY(cubes[index].position.x,cubes[index].position.z,index); 
+        var nextYIndex = parseInt(index)+totalUntilNextY; 
+        if(i.name == 'water'){
+          
+          if(lastXIndex > 0){
+            if(cubes[lastXIndex].position.x == (cubes[index].position.x - CUBE_WIDTH) || cubes[lastXIndex].position.x >= cubes[index].position.x){
+              //DO NOTHING
+            }else{
+              if((cubes[index].position.x > (CUBE_WIDTH*3)) && (cubes[index].position.x < ((CUBE_WIDTH*TOTAL_X_CUBES) - (CUBE_WIDTH*3)))){
+                selectedTexture = 'water';
+                var cube = new Cube(cubes[index].position.x - CUBE_WIDTH,cubes[index].position.y,cubes[index].position.z,true);
+                var waterCube = new Object();
+                waterCube.newCube = cube;
+                waterCube.startIndex = index;
+                waterCube.xyz = (cubes[index].position.x - CUBE_WIDTH) + ',' + cubes[index].position.y + ',' + cubes[index].position.z;
+                waterCubes.push(waterCube);
+              }
+            }
+          }
+
+          if(nextXIndex < cubes.length){
+            if(cubes[nextXIndex].position.x == (cubes[index].position.x + CUBE_WIDTH) || cubes[nextXIndex].position.x <= cubes[index].position.x){
+              //DO NOTHING
+            }else{
+              if((cubes[index].position.x > (CUBE_WIDTH*3)) && (cubes[index].position.x < ((CUBE_WIDTH*TOTAL_X_CUBES) - (CUBE_WIDTH*3)))){
+                selectedTexture = 'water';
+                var cube = new Cube(cubes[index].position.x + CUBE_WIDTH,cubes[index].position.y,cubes[index].position.z,true);
+                var waterCube = new Object();
+                waterCube.newCube = cube;
+                waterCube.startIndex = index + 1;
+                waterCube.xyz = (cubes[index].position.x + CUBE_WIDTH) + ',' + cubes[index].position.y + ',' + cubes[index].position.z;
+                waterCubes.push(waterCube);
+              }
+            }
+          }
+          
+
+          if(lastZIndex > 0){
+            if(cubes[lastZIndex].position.z == (cubes[index].position.z - CUBE_DEPTH) || cubes[lastZIndex].position.z >= cubes[index].position.z){
+              //DO NOTHING
+            }else{
+              if(cubes[lastZIndex].position.x == cubes[index].position.x && cubes[lastZIndex].position.y == cubes[index].position.y){
+                if((cubes[index].position.z > (CUBE_DEPTH*3)) && (cubes[index].position.z < ((CUBE_DEPTH*TOTAL_Z_CUBES) - (CUBE_DEPTH*3)))){
+                  if(cubesSinceLastZ(cubes[index].position.x,cubes[index].position.y,index) == TOTAL_Z_CUBES){
+                    //DO NOTHING
+                  }else{
+                    selectedTexture = 'water';
+                    var cube = new Cube(cubes[index].position.x,cubes[index].position.y,cubes[index].position.z - CUBE_DEPTH,true);
+                    var waterCube = new Object();
+                    waterCube.newCube = cube;
+                    waterCube.startIndex = index-(numInLastColZ(index));
+                    waterCube.xyz = cubes[index].position.x + ',' + cubes[index].position.y + ',' + (cubes[index].position.z - CUBE_DEPTH);
+                    //console.log('index: ' + lastZIndex + ' ' + cubes[lastZIndex].position.x + ',' + cubes[lastZIndex].position.y + ',' + cubes[lastZIndex].position.z);
+                    //console.log('index: ' + index + ' ' + cubes[index].position.x + ',' + cubes[index].position.y + ',' + cubes[index].position.z);
+                    //console.log(waterCube);
+                    waterCubes.push(waterCube);
+                  }
+                }
+              }
+            }
+          }
+
+          if(nextZIndex < cubes.length){
+            if(cubes[nextZIndex].position.z == (cubes[index].position.z + CUBE_DEPTH) || cubes[nextZIndex].position.z <= cubes[index].position.z){
+              //DO NOTHING
+            }else{
+              if((cubes[index].position.z > (CUBE_DEPTH*3)) && (cubes[index].position.z < ((CUBE_DEPTH*TOTAL_Z_CUBES) - (CUBE_DEPTH*3)))){
+                if(cubesUntilNextZ(cubes[index].position.x,cubes[index].position.y,index) == TOTAL_Z_CUBES){
+                  //DO NOTHING
+                }else{
+                  selectedTexture = 'water';
+                  var cube = new Cube(cubes[index].position.x,cubes[index].position.y,cubes[index].position.z + CUBE_DEPTH,true);
+                  var waterCube = new Object();
+                  waterCube.newCube = cube;
+                  waterCube.startIndex = index+(numInNextColZ(index));
+                  waterCube.xyz = cubes[index].position.x + ',' + cubes[index].position.y + ',' + (cubes[index].position.z + CUBE_DEPTH);
+                  waterCubes.push(waterCube);
+                }
+              }
+            }
+          }
+
+          if(lastYIndex > 0){
+            if(cubes[lastYIndex].position.y == (cubes[index].position.y - CUBE_HEIGHT) || cubes[lastYIndex].position.y >= cubes[index].position.y){
+              //DO NOTHING
+            }else{
+              if(cubes[lastZIndex].position.x == cubes[index].position.x && cubes[lastZIndex].position.y == cubes[index].position.y){
+                if((cubes[index].position.y > (CUBE_HEIGHT*3)) && (cubes[index].position.y < ((CUBE_HEIGHT*TOTAL_Y_CUBES) - (CUBE_HEIGHT*3)))){
+                  if(cubesSinceLastY(cubes[index].position.x,cubes[index].position.z,index) == TOTAL_Z_CUBES*TOTAL_X_CUBES){
+                    //DO NOTHING
+                  }else{
+                    selectedTexture = 'water';
+                    var cube = new Cube(cubes[index].position.x,cubes[index].position.y - CUBE_HEIGHT,cubes[index].position.z,true);
+                    var waterCube = new Object();
+                    waterCube.newCube = cube;
+                    waterCube.startIndex = index-(numInLastColY(index));
+                    waterCube.xyz = cubes[index].position.x + ',' + (cubes[index].position.y - CUBE_HEIGHT) + ',' + cubes[index].position.z;
+                    waterCubes.push(waterCube);
+                  }
+                }
+              }
+            }
+          }
+
+          if(nextYIndex < cubes.length){
+            if(cubes[nextYIndex].position.y == (cubes[index].position.y + CUBE_HEIGHT) || cubes[nextYIndex].position.y <= cubes[index].position.y){
+              //DO NOTHING
+            }else{
+              if((cubes[index].position.y > (CUBE_HEIGHT*3)) && (cubes[index].position.y < ((CUBE_HEIGHT*TOTAL_Y_CUBES) - (CUBE_HEIGHT*3)))){
+                if(cubesUntilNextY(cubes[index].position.x,cubes[index].position.z,index) == TOTAL_Z_CUBES*TOTAL_X_CUBES){
+                  //DO NOTHING
+                }else{
+                  selectedTexture = 'water';
+                  var cube = new Cube(cubes[index].position.x,cubes[index].position.y + CUBE_HEIGHT,cubes[index].position.z,true);
+                  var waterCube = new Object();
+                  waterCube.newCube = cube;
+                  waterCube.startIndex = index+(numInNextColY(index));
+                  waterCube.xyz = cubes[index].position.x + ',' + (cubes[index].position.y + CUBE_HEIGHT) + ',' + cubes[index].position.z;
+                  waterCubes.push(waterCube);
+                }
+              }
+            }
+          }
+        }
+
+        selectedTexture = oldSelectedTexture;
+        index++;
+      });
+      var trimmedWaterCubes = removeDuplicates(waterCubes, 'xyz');
+      //console.log(trimmedWaterCubes.length);
+      if(trimmedWaterCubes.length == 0){
+        pass = true;
+      }else{
+        trimmedWaterCubes.forEach(function(i) {
+          var newIndex = i.startIndex + (trimmedWaterCubes.indexOf(i));
+          cubes.splice(newIndex, 0, i.newCube.cube);
+          scene.add(i.newCube.cube);
+        });
+        waterCubes = [];
+      }
+      // if(!pass){
+      //   fillWater();
+      // }
+    }
+
+    function loop(){
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    function render(){
+      controls.update();      
+      camera.updateMatrixWorld();
+
+      raycaster.setFromCamera(mouse, camera);
+
+      renderer.render(scene, camera);
+    }
+
+    function updateSelectedTexture(v){
+      selectedTexture = v;
+    }
+
+
+    function saveAsImage() {
+        var imgData, imgNode;
+        try {
+            var strMime = "image/jpeg";
+            imgData = renderer.domElement.toDataURL(strMime);
+            saveFile(imgData.replace(strMime, strDownloadMime), "myCube.jpg");
+        } catch (e) {
+            console.log(e);
+            return;
+        }
+    }
+
+    var saveFile = function (strData, filename) {
+        var link = document.createElement('a');
+        if (typeof link.download === 'string') {
+            document.body.appendChild(link); 
+            link.download = filename;
+            link.href = strData;
+            link.click();
+            document.body.removeChild(link); 
+        } else {
+            location.replace(uri);
+        }
+    }
+
+    function rule3(v,vmin,vmax,tmin, tmax){
+      var nv = Math.max(Math.min(v,vmax), vmin);
+      var dv = vmax-vmin;
+      var pc = (nv-vmin)/dv;
+      var dt = tmax-tmin;
+      var tv = tmin + (pc*dt);
+      return tv;      
+    }
+
+    //REMOVE DUPLICATE ENTRIES FROM THE WATERCUBES ARRAY
+    function removeDuplicates(originalArray, objKey) {
+      var trimmedArray = [];
+      var values = [];
+      var value;
+
+      for(var i = 0; i < originalArray.length; i++) {
+        value = originalArray[i][objKey];
+
+        if(values.indexOf(value) === -1) {
+          trimmedArray.push(originalArray[i]);
+          values.push(value);
+        }
+      }
+      return trimmedArray;
+    }
+
+    //COUNT TOTAL SINCE LAST Z INDEX
+    function cubesSinceLastZ(xCord,yCord,startIndex){
+      totalCubes = 0;
+      if(startIndex <= TOTAL_Z_CUBES){
+        //DO NOTHING
+      }else{
+        for(var i = startIndex-1; i >= 0; i--) {
+          totalCubes++;
+          if(cubes[i].position.x == xCord && cubes[i].position.y == yCord){
+            break;
+          }
+        }
+      }
+      return totalCubes;
+    }
+
+    //COUNT TOTAL UNTIL NEXT Z INDEX
+    function cubesUntilNextZ(xCord,yCord,startIndex){
+      totalCubes = 0;
+      for(var i = startIndex+1 ; i < cubes.length; i++) {
+        totalCubes++;
+        if(cubes[i].position.x == xCord && cubes[i].position.y == yCord){
+          break;
+        }
+      }
+      return totalCubes;
+    }
+
+    //COUNT TOTAL SINCE LAST Y INDEX
+    function cubesSinceLastY(xCord,zCord,startIndex){
+      totalCubes = 0;
+      if(startIndex <= TOTAL_Z_CUBES*TOTAL_X_CUBES){
+        //DO NOTHING
+      }else{
+        for(var i = startIndex-1; i >= 0; i--) {
+          totalCubes++;
+          if(cubes[i].position.x == xCord && cubes[i].position.z == zCord){
+            break;
+          }
+        }
+      }
+      return totalCubes;
+    }
+
+    //COUNT TOTAL UNTIL NEXT Y INDEX
+    function cubesUntilNextY(xCord,zCord,startIndex){
+      totalCubes = 0;
+      for(var i = startIndex+1 ; i < cubes.length; i++) {
+        totalCubes++;
+        if(cubes[i].position.x == xCord && cubes[i].position.z == zCord){
+          break;
+        }
+      }
+      return totalCubes;
+    }
+
+    //CHECKS TO SEE IF CUBES ARE SUQUENCED WITHOUT ERROR
+    function checkCubesSequence(){
+      var mia= [];
+      for(var i = 1; i < cubes.length; i++){     
+        if(cubes[i] - cubes[i-1] != 1){         
+          var x = cubes[i] - cubes[i-1];
+          var j = 1;
+          while (j<x){
+            mia.push(cubes[i-1]+j);
+            j++;
+          }
+        }
+      }
+      console.log(mia)
+    }
+
+    //COUNT Z CUBES WITHIN THE LAST 20 
+    function numInLastColZ(v){
+      var i = 0;
+      var startIndex = v; 
+      for( ; i <= TOTAL_Z_CUBES; i++){
+        var index = startIndex-i;
+        var posX = cubes[index].position.x;
+        var posZ = cubes[index].position.z;
+        if(posZ < cubes[startIndex].position.z && posX == cubes[startIndex].position.x){
+          break;
+        }
+      }
+      return i;
+    }
+
+    //COUNT Z CUBES WITHIN THE NEXT 20 
+    function numInNextColZ(v){
+      var i = 0;
+      var startIndex = v; 
+      for( ; i <= TOTAL_Z_CUBES; i++){
+        var index = startIndex+i;
+        var posX = cubes[index].position.x;
+        var posZ = cubes[index].position.z;
+        if(posZ > cubes[startIndex].position.z && posX == cubes[startIndex].position.x){
+          break;
+        }
+      }
+      return i;
+    }
+
+     //COUNT Y CUBES WITHIN THE LAST 200
+     function numInLastColY(v){
+      var i = 0;
+      var startIndex = v; 
+      for( ; i <= TOTAL_Z_CUBES*TOTAL_X_CUBES; i++){
+        var index = startIndex-i;
+        var posX = cubes[index].position.x;
+        var posZ = cubes[index].position.z;
+        var posY = cubes[index].position.y;
+        if(posZ == cubes[startIndex].position.z && posX == cubes[startIndex].position.x && posY < cubes[startIndex].position.y){
+          break;
+        }
+      }
+      return i;
+    }
+
+    //COUNT Y CUBES WITHIN THE NEXT 200 
+    function numInNextColY(v){
+      var i = 0;
+      var startIndex = v; 
+      for( ; i <= TOTAL_Z_CUBES*TOTAL_X_CUBES; i++){
+        var index = startIndex+i;
+        var posX = cubes[index].position.x;
+        var posZ = cubes[index].position.z;
+        var posY = cubes[index].position.y;
+        if(posZ == cubes[startIndex].position.z && posX == cubes[startIndex].position.x && posY > cubes[startIndex].position.y){
+          break;
+        }
+      }
+      return i;
+    }
+
+    init();
+    createLights();
+    createCubes();
+    loop();
+
+
+    </script>
+    </body>
+</html>
